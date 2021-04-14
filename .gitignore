@@ -1,0 +1,6 @@
+.venv/
+.vscode/
+emptydb/
+__pycache__
+*.xlsx
+*.pdf
