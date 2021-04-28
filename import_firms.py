@@ -3,26 +3,27 @@ import pandas as pd
 import re
 import database_driver
 
-
-def get_supplier_data(index):
+def get_supplier_data(index: str) -> dict[str, pd.DataFrame]:
     """ Import row of supplier data by given index
+
         :param: index - Index to be read from dataframe
         :return: Dict of supplier info
     """
     df = database_driver.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal')
+    col = df.iloc[[index]][index]
     field_data = {
-        'NAME': df.iloc[[index]]['Supplier Name'].sum(),
+        'NAME': col['Supplier Name'],
         'ABTEILUNG': format_position(str(df.iloc[[index]]['Position'].sum())),
-        'STR': df.iloc[[index]]['Street'].sum(),
-        'HAUSNR': df.iloc[[index]]['Street No.'].sum(),
-        'PLZ': df.iloc[[index]]['Postcode'].sum(),
-        'EMAIL': df.iloc[[index]]['E-Mail'].sum(),
-        'WEBSITE': df.iloc[[index]]['WEB'].sum(),
-        'TEL1': df.iloc[[index]]['Telefon'].sum(),
-        'TEL2': df.iloc[[index]]['Mobil'].sum(),
-        'FAX': df.iloc[[index]]['Fax'].sum(),
-        'ANSP': df.iloc[[index]]['Ansprechpartner'].sum(),
-        'KNR': df.iloc[[index]]['Kundennummer'].sum()
+        'STR': col['Street'],
+        'HAUSNR': col['Street No.'],
+        'PLZ': col['Postcode'],
+        'EMAIL': col['E-Mail'],
+        'WEBSITE': col['WEB'],
+        'TEL1': col['Telefon'],
+        'TEL2': col['Mobil'],
+        'FAX': col['Fax'],
+        'ANSP': col['Ansprechpartner'],
+        'KNR': col['Kundennummer']
     }
 
     for key, value in field_data.items():
@@ -32,12 +33,12 @@ def get_supplier_data(index):
     return field_data
 
 
-def key_count(entries, key):
+def key_count(entries: pd.DataFrame, key: str) -> int:
     """ Returns the count of a specific key within the XLSX
 
-    :param entries: Data of worksheet rows
-    :param key: Key to searched for repetitions
-    :return: Number of keys repitions
+        :param entries: Data of worksheet rows
+        :param key: Key to searched for repetitions
+        :return: Number of keys repitions
     """
     count = 0
     for entry in entries.items():
@@ -47,9 +48,10 @@ def key_count(entries, key):
     return count
 
 
-def insert_badr(supplier):
+def insert_badr(supplier: dict) -> int:
     """ Insert a specified supplier into Firebird database.
         Table BADR is supplied with a key
+
         :param supplier: Supplier object to be inserted
         :retun: Return ID of address master list
     """
@@ -96,13 +98,14 @@ def insert_badr(supplier):
     return badr_id
 
 
-def insert_badr_min(supplier):
+def insert_badr_min(supplier: dict) -> int:
     """ Insert minified entry of supplier into adresses table, a
         minified entry contains only a company name.
         This is used in case an invoice entry is detected with an
         unknown/new supplier name.
 
-        :parasm supplier: Supplier name string to be inserted in to table 
+        :param supplier: Supplier name string to be inserted in to table 
+        :return: ID of BADR entry 
     """
     con = database_driver.connect_to_database()
     cur = con.cursor()
@@ -117,7 +120,7 @@ def insert_badr_min(supplier):
     return badr_id
 
 
-def insert_blief(BADR_ID):
+def insert_blief(BADR_ID: int):
     """ Insert entry of supplier into joint table
         BLIEF of client addresses
 
@@ -143,7 +146,7 @@ def iterate_all_suppliers():
         insert_blief(gen_id)
 
 
-def get_badr_id(name):
+def get_badr_id(name: str) -> int:
     """ Fetch the address id of the BADR table
         by a string name (company name)
 
@@ -167,7 +170,7 @@ def get_badr_id(name):
     return badr_id
 
 
-def get_blief_id(BADR_ID):
+def get_blief_id(BADR_ID: int) -> int:
     """ Fetch the supplier id of the BLIEF table
         by address id of BADR ID
 
@@ -186,7 +189,7 @@ def get_blief_id(BADR_ID):
     return blief_id
 
 
-def format_number(number):
+def format_number(number: int) -> dict:
     """ Method to format tel and fax numbers
         to database standard
         :param number: Unformatted number
@@ -210,7 +213,7 @@ def format_number(number):
     return formatted
 
 
-def replace_zero(dict):
+def replace_zero(dict: dict):
     """ Replace zero entries to None types.
         :param dict: Dictionary object containing zeroes
     """
@@ -219,7 +222,7 @@ def replace_zero(dict):
             dict[key] = None
 
 
-def format_employee_name(name):
+def format_employee_name(name: str) -> str:
     """ Format position names correctly.
         This is to avoid string truncation, as firebird has restricted position name lengths.
         :param name: Unformatted name of employee
@@ -239,7 +242,7 @@ def format_employee_name(name):
     return formatted
 
 
-def format_position(position):
+def format_position(position: str):
     """ Format employee position strings correctly.
         :param position: Position description name
     """

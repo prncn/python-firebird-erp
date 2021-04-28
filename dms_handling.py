@@ -5,7 +5,7 @@ from shutil import copyfile
 import ntpath
 
 
-def fetch_hyperlink(index):
+def fetch_hyperlink(index: int) -> None:
     """ Fetch hyperlink pointing to a specific document
         file location for DMS by a given excel data row
         :param index: Index of excel sheet to extract link from.
@@ -36,7 +36,7 @@ def fetch_hyperlink(index):
     return None
 
 
-def copy_document(index):
+def copy_document(index: int) -> None:
     """ Method to copy file from source path to 
         designated DMS import file path (from link). 
         AVERP then handles import into the database.

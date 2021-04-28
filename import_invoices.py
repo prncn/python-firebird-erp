@@ -8,7 +8,7 @@ import openpyxl
 from shutil import copyfile
 
 
-def load_entry_pandas(index: int) -> dict[pd.DataFrame]:
+def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
     """ Import excel file containing sample sales data
         File should be processed for specfic columns
         :param index: Index of dataframe row
@@ -18,24 +18,26 @@ def load_entry_pandas(index: int) -> dict[pd.DataFrame]:
     # sample_data = sample_data.where(pandas.notnull(sample_data), None)
     # name = sample_data.to_dict()['Name']
     # brutto = sample_data.to_dict()['Brutto']
-    col = sample_data.iloc[[index]]
+    def col(name):
+        return sample_data.iloc[[index]][name][index]
+
     invoice_data = {
-        'NAME': col['Lieferant'].name,
+        'NAME': col('Lieferant'),
         'RECHDATUM_LIEF': format_date(sample_data, index, 'Beleg Datum'),
         'RECHDATUM': format_date(sample_data, index, 'Beleg Datum'),
         'ZAHLDATUM': format_date(sample_data, index, 'Fälligkeit'),
-        'LRECHNR': col['Rechnungs-Nr.'].name,
-        'GESAMT': "{:.2f}".format(col['Rechnungsbetrag'].sum()),
-        'STATUS': col['Status'].name,
+        'LRECHNR': col('Rechnungs-Nr.'),
+        'GESAMT': "{:.2f}".format(sample_data.iloc[[index]]['Rechnungsbetrag'].sum()),
+        'STATUS': col('Status'),
         'ZAHL': format_date(sample_data, index, 'Bezahlt am'),
-        'BAUVOR': col['Bauvorhaben'].name,
-        'LIEG': col['Liegenschaft'].name
+        'BAUVOR': col('Bauvorhaben'),
+        'LIEG': col('Liegenschaft')
     }
 
     return invoice_data
 
 
-def load_entry_openpyxl(index):
+def load_entry_openpyxl(index: str) -> dict[str, str]:
     """ Replacement of import_invoice method
         that uses openpxyl instead of pandas excel reader
     """
@@ -58,13 +60,13 @@ def load_entry_openpyxl(index):
     return invoice_data
 
 
-def ws_format(ws, index, col):
+def ws_format(ws: openpyxl.Workbook, index: int, col: int) -> str:
     """ Formatting for import_invoice_openpxl method
     """
     return ws['{}{}'.format(col, index + 1)].value
 
 
-def format_date(sample_data, index, col):
+def format_date(sample_data: pd.DataFrame, index: int, col: int) -> datetime.datetime:
     """ Convert to proper date string format for time series objects
         of excel dates
         :param sample_data: Dataframe file that is read
@@ -77,7 +79,7 @@ def format_date(sample_data, index, col):
         return datetime.datetime.now()
 
 
-def insert_invoice(BLIEF_ID, BADR_ID, BMAND_ID, RECHDATUM_LIEF, RECHDATUM, ZAHLDATUM, LRECHNR, GESAMT):
+def insert_invoice(BLIEF_ID, BADR_ID, BMAND_ID, RECHDATUM_LIEF, RECHDATUM, ZAHLDATUM, LRECHNR, GESAMT) -> int:
     """ Insert an entry of invoice into 
         main invoice table BLCR
         :param BLIEF_ID: Connected supplier table ID 

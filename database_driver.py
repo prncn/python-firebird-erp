@@ -4,7 +4,7 @@ import re
 from timeit import default_timer as timer
 import import_invoices as invoices
 
-def connect_to_database(status="dev"):
+def connect_to_database(status: str="dev") -> fdb.Connection:
     """ Connect to the firebird database
         Default database to connect is the AVERP empty db
         :return: Connection object
@@ -24,7 +24,7 @@ def connect_to_database(status="dev"):
     return con
 
 
-def excel_to_dataframe(file_name, sheet_name):
+def excel_to_dataframe(file_name: str, sheet_name: str) -> pd.DataFrame:
     """ Load in excel file of supplier list data
         This should be injected into Firebird / Averp supplier info
         :param file_name: File name of excel file to be read
@@ -37,7 +37,7 @@ def excel_to_dataframe(file_name, sheet_name):
     return supplier_data
 
 
-def clear_entries():
+def clear_entries() -> fdb.Connection:
     """ Clear all entries of created insertions
         of tables BADR and BLIEF
     """
@@ -56,12 +56,19 @@ def clear_entries():
     con.commit()
     con.close()
 
+    return con
+
+
 def performance_test():
+    """ Performance test to compare to similar methods.
+        Used to determine whether OpenPyXL or Pandas is appropriate.
+    """
     times = []
     for i in range(0, 3):
         start = timer()
         for j in range(15, 18):
-            # invoices.load_entry_openpyxl(j)
+            # replaceable with any method
+            # invoices.load_entry_openpyxl(j)   
             invoices.load_entry_pandas(j)
         end = timer()
         time = end - start
@@ -72,6 +79,8 @@ def performance_test():
         total += time
 
     print("Elapsed time of run: " + "{:.2f}".format(total/len(times)) + "s")
+
+
 
 if __name__ == "__main__":
     performance_test()

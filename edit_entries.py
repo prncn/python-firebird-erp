@@ -26,7 +26,7 @@ def update_status():
     cur.execute(update)
 
 
-def update_invoice_status(index):
+def update_invoice_status(index: int):
     """ Update status field of given invoice entry.
         Main method implementation.
         :param index: Index of given invoice in data frame
@@ -66,7 +66,7 @@ def update_invoice_status(index):
     con.commit()
 
 
-def switch_invoicer(old_firm, new_firm):
+def switch_invoicer(old_firm: str, new_firm: str):
     """ Replace old invoice firm to a new firm name.
         :param old_firm: String name of old firm to replace.
         :param new_firm: String name of new firm to inject.
@@ -113,14 +113,17 @@ def update_badr_str():
     print(count)
 
 
-def update_project_desc(index):
+def update_project_desc(index: int):
     """ Update project entities intro invoice entries.
         BAUVOR and LIEF
     """
     con = db.connect_to_database('prod')
     cur = con.cursor()
 
-    project = inv.load_entry_openpyxl(index)
+    project = inv.load_entry_pandas(index)
+    if project['BAUVOR'] and project['LIEG'] is None:
+        return
+
     print(project)
     cur.execute("update BLRC set BAUVOR=?, LIEG=? where LRECHNR=?", [project['BAUVOR'], project['LIEG'], project['LRECHNR']])
     con.commit()
@@ -128,5 +131,9 @@ def update_project_desc(index):
 
 if __name__ == "__main__":
     print("edit_entries")
-    # update_project_desc(607)
-    update_badr_str()
+    count = 167
+    for i in range(count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):  
+        update_project_desc(i)
+        count += 1
+        print(count) 
+    # update_badr_str()
