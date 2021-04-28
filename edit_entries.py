@@ -31,7 +31,7 @@ def update_invoice_status(index):
         Main method implementation.
         :param index: Index of given invoice in data frame
     """
-    entry = inv.import_invoices(index)
+    entry = inv.load_entry_pandas(index)
     con = db.connect_to_database("prod")
     cur = con.cursor()
 
@@ -104,23 +104,23 @@ def update_badr_str():
     cur.execute(select)
     count = 0
     for row in cur:
-        # edit.execute("update BADR set STR='', HAUSNR='' where ID=? returning ID", [row[1]])
-        # print("Updated {} row {}".format(row[0], edit.fetchall()[0][0]))
+        edit.execute("update BADR set STR='', HAUSNR='' where ID=?", [row[1]])
+        print("Updated {} row {}".format(row[0], row[1]))
         print(row)
         count += 1
     
-    # con.commit()
+    con.commit()
     print(count)
 
 
 def update_project_desc(index):
-    """ Update project entities into invoice entries. 
-        BAUVOR and LIEF.
+    """ Update project entities intro invoice entries.
+        BAUVOR and LIEF
     """
     con = db.connect_to_database('prod')
     cur = con.cursor()
-    
-    project = inv.import_invoice_openpxl(index)
+
+    project = inv.load_entry_openpyxl(index)
     print(project)
     cur.execute("update BLRC set BAUVOR=?, LIEG=? where LRECHNR=?", [project['BAUVOR'], project['LIEG'], project['LRECHNR']])
     con.commit()
@@ -128,4 +128,5 @@ def update_project_desc(index):
 
 if __name__ == "__main__":
     print("edit_entries")
-    update_project_desc(606)
+    # update_project_desc(607)
+    update_badr_str()

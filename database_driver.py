@@ -1,7 +1,8 @@
 import fdb
 import pandas as pd
 import re
-
+from timeit import default_timer as timer
+import import_invoices as invoices
 
 def connect_to_database(status="dev"):
     """ Connect to the firebird database
@@ -54,3 +55,23 @@ def clear_entries():
 
     con.commit()
     con.close()
+
+def performance_test():
+    times = []
+    for i in range(0, 3):
+        start = timer()
+        for j in range(15, 18):
+            # invoices.load_entry_openpyxl(j)
+            invoices.load_entry_pandas(j)
+        end = timer()
+        time = end - start
+        times.append(time)
+
+    total = 0
+    for time in times:
+        total += time
+
+    print("Elapsed time of run: " + "{:.2f}".format(total/len(times)) + "s")
+
+if __name__ == "__main__":
+    performance_test()

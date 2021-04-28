@@ -23,27 +23,30 @@ def fetch_hyperlink(index):
     blrc_id = cur.fetchall()[0][0]
 
     link = inv_no.hyperlink
-    if link != None:
+    if link is not None:
         print(link.target)
         print(blrc_id)
         return {
             'id': blrc_id,
             'link': link.target
         }
+    else:
+        print("No document on record.")
 
     return None
 
 
 def copy_document(index):
-    """ Move (copy) document from source path to ERP specified
-        DMS location for import
-        :param src: Original source path
+    """ Method to copy file from source path to 
+        designated DMS import file path (from link). 
+        AVERP then handles import into the database.
+        :param index: Index of databframe of hyperlink to be fetched
     """
     doc = fetch_hyperlink(index)
     src = doc['link']
     filename = ntpath.basename(doc['link'])
     blrc_id = doc['id']
-    copyfile(src, '/AvERPDB/DMS_IMPORT/BLRC/ID{} {}.pdf'.format(blrc_id, filename))
+    copyfile(src, '/AVERPDB/DMS_IMPORT/BLRC/ID{} {}.pdf'.format(blrc_id, filename))
 
 
 if __name__ == "__main__":

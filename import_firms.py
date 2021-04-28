@@ -123,7 +123,6 @@ def insert_blief(BADR_ID):
 
         :param BADR_ID: Returned adress table entry ID
     """
-
     con = database_driver.connect_to_database()
     link_sup = "insert into BLIEF (BADR_ID_ADRNR, BWAER_ID_WAERUNGK, ERFDATUM, KZ_MWST, BBES_EINZELN) values (?, ?, CURRENT_DATE, 5, 1)"
 
