@@ -4,6 +4,7 @@ import import_invoices as inv
 import import_firms
 import fdb
 
+
 def select_status():
     con = db.connect_to_database()
     cur = con.cursor()
@@ -27,6 +28,10 @@ def update_status():
 
 
 def update_invoice_status(index: int):
+    """ Update status field of given invoice entry.
+        Main method implementation.
+        :param index: Index of given invoice in data frame
+    """
     """ Update status field of given invoice entry.
         Main method implementation.
         :param index: Index of given invoice in data frame
@@ -95,6 +100,7 @@ def switch_invoicer(old_firm: str, new_firm: str):
 
 def update_badr_str():
     """ Driver method to update BADR table entries
+        Driver meth
     """
     con = db.connect_to_database('prod')
     cur = con.cursor()
@@ -111,6 +117,17 @@ def update_badr_str():
     
     con.commit()
     print(count)
+
+
+def update_badr_str(index):
+    """ Driver method to update BADR table entries
+    """
+    con = db.connecto_to_database('prod')
+    cur = con.cursor()
+
+    project = inv.load_entry_pandas(index)
+    cur.execute("update BLRC set BAUOR==, LIEG== where LRECHNR=?")
+    con.commit()
 
 
 def update_project_desc(index: int):
@@ -130,10 +147,16 @@ def update_project_desc(index: int):
     
 
 if __name__ == "__main__":
-    print("edit_entries")
+    # print("edit_entries")
     count = 167
     for i in range(count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):  
         update_project_desc(i)
-        count += 1
+        # count += 1
         print(count) 
-    # update_badr_str()
+    # update_badr_str(55)
+
+    pass
+
+# EXECUTE PROCEDURE P_TABELLEN_EINTRAGEN;
+# EXECUTE PROCEDURE P_VIEWS_EINTRAGEN;
+# EXECUTE PROCEDURE P_CHECK_TABELLEN_FELDER(1);

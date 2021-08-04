@@ -1,7 +1,9 @@
 import fdb
 import pandas as pd
 import re
-import database_driver
+import database_driver as db
+import math
+
 
 def get_supplier_data(index: str) -> dict[str, pd.DataFrame]:
     """ Import row of supplier data by given index
@@ -9,7 +11,7 @@ def get_supplier_data(index: str) -> dict[str, pd.DataFrame]:
         :param: index - Index to be read from dataframe
         :return: Dict of supplier info
     """
-    df = database_driver.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal')
+    df = db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal')
     col = df.iloc[[index]][index]
     field_data = {
         'NAME': col['Supplier Name'],
@@ -55,13 +57,14 @@ def insert_badr(supplier: dict) -> int:
         :param supplier: Supplier object to be inserted
         :retun: Return ID of address master list
     """
-    con = database_driver.connect_to_database()
+    con = db.connect_to_database()
     insert_badr = "insert into BADR (NAME, ABTEILUNG, BPLZ_ID_LANDPLZ, WEBSITE, EMAIL, STR, HAUSNR, TELVOR, TELANSCH, TELVOR2, TELANSCH2, FAXVOR, FAXANSCH) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning ID"
 
     cur = con.cursor()
     BPLZ_ID_LANDPLZ = 0
     if supplier['PLZ'] != 0:
-        cur.execute("select ID from BPLZ WHERE PLZ = {}".format(supplier['PLZ']))
+        cur.execute(
+            "select ID from BPLZ WHERE PLZ = {}".format(supplier['PLZ']))
         for id in cur:
             BPLZ_ID_LANDPLZ = id[0]
             break
@@ -74,7 +77,7 @@ def insert_badr(supplier: dict) -> int:
         supplier['NAME'],
         supplier['ABTEILUNG'],
         BPLZ_ID_LANDPLZ,
-        supplier['WEBSITE'], 
+        supplier['WEBSITE'],
         supplier['EMAIL'],
         supplier['STR'],
         supplier['HAUSNR'],
@@ -89,9 +92,10 @@ def insert_badr(supplier: dict) -> int:
     print(supplier['NAME'] + " inserted into BADR")
     # try:
     insert_bansp = "insert into BANSP (BMAND_ID, BADR_ID_LINKKEY, NAME, NACHNAME, EMAIL) values (1, ?, ?, ?, ?)"
-    cur.execute(insert_bansp, [badr_id, supplier['ANSP'], supplier['ANSP'], supplier['EMAIL']])
+    cur.execute(insert_bansp, [badr_id, supplier['ANSP'],
+                               supplier['ANSP'], supplier['EMAIL']])
     # except fdb.fbcore.DatabaseError:
-        # print(badr_id, supplier['ANSP'], supplier['EMAIL'])
+    # print(badr_id, supplier['ANSP'], supplier['EMAIL'])
     con.commit()
     con.close()
 
@@ -107,7 +111,7 @@ def insert_badr_min(supplier: dict) -> int:
         :param supplier: Supplier name string to be inserted in to table 
         :return: ID of BADR entry 
     """
-    con = database_driver.connect_to_database()
+    con = db.connect_to_database()
     cur = con.cursor()
 
     insert = "insert into BADR (NAME) values (?) returning ID"
@@ -120,13 +124,13 @@ def insert_badr_min(supplier: dict) -> int:
     return badr_id
 
 
-def insert_blief(BADR_ID: int):
+def insert_blief(BADR_ID: int) -> None:
     """ Insert entry of supplier into joint table
         BLIEF of client addresses
 
         :param BADR_ID: Returned adress table entry ID
     """
-    con = database_driver.connect_to_database()
+    con = db.connect_to_database()
     link_sup = "insert into BLIEF (BADR_ID_ADRNR, BWAER_ID_WAERUNGK, ERFDATUM, KZ_MWST, BBES_EINZELN) values (?, ?, CURRENT_DATE, 5, 1)"
 
     cur = con.cursor()
@@ -136,11 +140,11 @@ def insert_blief(BADR_ID: int):
     con.close()
 
 
-def iterate_all_suppliers():
+def iterate_all_suppliers() -> None:
     """ Insert all entries of excel file data.
         Iterates full sheet and applies insertions
     """
-    entries = database_driver.excel_to_dataframe()
+    entries = db.excel_to_dataframe()
     for entry in entries:
         gen_id = insert_badr(entry)
         insert_blief(gen_id)
@@ -152,7 +156,7 @@ def get_badr_id(name: str) -> int:
 
         :param name: Name string of company
     """
-    con = database_driver.connect_to_database()
+    con = db.connect_to_database()
     select = "select ID from BADR where NAME = ?"
 
     cur = con.cursor()
@@ -176,7 +180,7 @@ def get_blief_id(BADR_ID: int) -> int:
 
         :param BADR_ID: Address table ID of connected entry
     """
-    con = database_driver.connect_to_database()
+    con = db.connect_to_database()
     select = "select ID from BLIEF where BADR_ID_ADRNR = ?"
 
     cur = con.cursor()
@@ -213,7 +217,7 @@ def format_number(number: int) -> dict:
     return formatted
 
 
-def replace_zero(dict: dict):
+def replace_zero(dict: dict) -> None:
     """ Replace zero entries to None types.
         :param dict: Dictionary object containing zeroes
     """
@@ -231,7 +235,6 @@ def format_employee_name(name: str) -> str:
     lastname = ''
 
     lastname = re.split(" ", name)[1]
-
     formatted = {
         'firstname': firstname,
         'lastname': lastname
@@ -242,7 +245,7 @@ def format_employee_name(name: str) -> str:
     return formatted
 
 
-def format_position(position: str):
+def format_position(position: str) -> None:
     """ Format employee position strings correctly.
         :param position: Position description name
     """
@@ -250,8 +253,81 @@ def format_position(position: str):
         return None
     if position is not None:
         return re.split(',|/', position)[0]
-    
+
     return None
+
+
+def delete_firm(name: str) -> None:
+    """ Delete specific company by name key
+        :param name: Name of company
+    """
+    con = db.connect_to_database()
+    cur = con.cursor()
+
+    delete = "delete from BADR where NAME = ? returning ID"
+    cur.execute(delete, [name])
+    id_del = cur.fetchall()[0][0]
+    print("Deleted company entry {} with ID {}".format(name, id_del))
+    con.commit()
+    con.close()
+
+
+def read_datev(index) -> dict:
+    cols = ['Konto', 'Beschriftung', 'Unternehmensgegenstand',
+            'Kunden-Nr.', 'Postfach oder Stra�e']
+    df = pd.read_csv('datev_firms.csv',
+                     skip_blank_lines=False,
+                     header=9,
+                     sep=';',
+                     usecols=cols
+                     )
+
+    # df.dropna(inplace=True, how='all')
+    index_corrected = index * 4
+    col = df.iloc[index_corrected]
+    col_next = df.iloc[index_corrected + 1]
+    field_data = {
+        'NAME': col['Beschriftung'],
+        'STR': col['Postfach oder Stra�e'],
+        'PLZ': (col_next['Postfach oder Stra�e']),
+        'TEL1': col_next['Unternehmensgegenstand'],
+        'KNR2': cast_int(col['Konto']),
+        'KNR': col['Kunden-Nr.']
+    }
+
+    return field_data
+
+
+def take_numeric(str):
+    if str is not None:
+        # key = re.search(r"\d+", str)
+        # if key is not None:
+        #     return int(key.group(0))
+
+        return ''.join(char for char in str if char.isnumeric())
+
+
+def cast_int(num) -> int:
+    if math.isnan(num):
+        return None
+    return int(num)
+
+
+def check_datev(index) -> bool:
+    name = read_datev(index)['NAME']
+    newname = read_datev(index)['PLZ']
+
+    con = db.connect_to_database()
+    cur = con.cursor()
+    select = "select first 1 ID from BADR where NAME = ?"
+    cur.execute(select, [name])
+
+    for id in cur:
+        return False
+
+    # badr_id_entr = insert_badr(name)
+    # insert_blief(badr_id_entr)
+    return True
 
 
 if __name__ == "__main__":
@@ -264,14 +340,14 @@ if __name__ == "__main__":
     # get_badr_id("Mercedes-Benz")
     # process_invoices()
 
-    for i in range (0, len(database_driver.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):    
-        entr = get_supplier_data(i)
-        # badr_id_entr = insert_badr(entr) 
-        # insert_blief(badr_id_entr)
+    # for i in range (0, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):
+    # entr = get_supplier_data(i)
+    # badr_id_entr = insert_badr(entr)
+    # insert_blief(badr_id_entr)
 
     # for i in range (10, 15):
-        # entr = get_supplier_data(i)
-        # badr_id_entr = insert_badr(entr)
+    # entr = get_supplier_data(i)
+    # badr_id_entr = insert_badr(entr)
 
     # insert_blief(insert_badr(get_supplier_data(10)))
     # insert_blief(insert_badr(get_supplier_data(11)))
@@ -279,3 +355,16 @@ if __name__ == "__main__":
 
     # entr = get_supplier_data(5)
     # print(entr)
+
+    # for i in range(2, 200):
+    #     # if not check_datev(i):
+    #     #     print(i, read_datev(i))
+    #     #     print('DATA IS NEW')
+    #     #     break
+    #     try:
+    #         check_datev(i)
+    #     except:
+    #         print(i)
+
+    print(read_datev(6))
+

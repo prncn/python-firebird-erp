@@ -20,7 +20,11 @@ def fetch_hyperlink(index: int) -> None:
     select = "select ID from BLRC where LRECHNR = ?"
     cur = con.cursor()
     cur.execute(select, [inv_no.value])
-    blrc_id = cur.fetchall()[0][0]
+    try:
+        blrc_id = cur.fetchall()[0][0]
+    except IndexError:
+        print("Index error occured when fetching invoice id")
+        return None
 
     link = inv_no.hyperlink
     if link is not None:
@@ -28,7 +32,7 @@ def fetch_hyperlink(index: int) -> None:
         print(blrc_id)
         return {
             'id': blrc_id,
-            'link': link.target
+            'link': r'\\192.168.178.245\dms' + link.target[2:].replace('%20', ' ')
         }
     else:
         print("No document on record.")
@@ -43,11 +47,46 @@ def copy_document(index: int) -> None:
         :param index: Index of databframe of hyperlink to be fetched
     """
     doc = fetch_hyperlink(index)
+
+    if doc is None:
+        return
+
     src = doc['link']
     filename = ntpath.basename(doc['link'])
     blrc_id = doc['id']
-    copyfile(src, '/AVERPDB/DMS_IMPORT/BLRC/ID{} {}.pdf'.format(blrc_id, filename))
+
+    base_url = r'\\192.168.178.51\AvERP_DB\DMS_IMPORT\BLRC\ID{} {}'.format(blrc_id, filename)
+
+    try:
+        copyfile(src, base_url)
+    except FileNotFoundError:
+        print("Path not found. Trying alt path... (REPLACE CHARS)")
+        try:
+            copyfile(src, base_url.replace("& ", ""))
+        except FileNotFoundError:
+            try:
+                print("Path not found. Trying alt path... (NESTED FOLDER))")
+                filename_index = src.rfind('\\')
+                folder_name = src[filename_index + 1 : src.find('_RE', filename_index)]
+                new_src = src[:filename_index] + '\\' + folder_name + src[filename_index:]
+                print(new_src)
+                copyfile(new_src, r'\\192.168.178.51\AvERP_DB\DMS_IMPORT\BLRC\ID{} {}'.format(blrc_id, filename))
+            except FileNotFoundError:
+                print("Path not found. Trying alt path... (SPLIT FOLDER NAMES)")
+                folder_name = folder_name.split(' ')[0]
+                new_src = src[:filename_index] + '\\' + folder_name + src[filename_index:]
+                print(new_src)
+                copyfile(new_src, r'\\192.168.178.51\AvERP_DB\DMS_IMPORT\BLRC\ID {}'.format(blrc_id, filename))
 
 
 if __name__ == "__main__":
-    pass
+    # path = fetch_hyperlink(3)['link']
+    # print(path)
+
+    count = 1840
+    for i in range(count, len(db.excel_to_dataframe('master_invoice_data.xlsx', 'Rechnungen').index)):  
+        copy_document(i)
+        print('count: ' + str(count))
+        count += 1
+
+    
