@@ -4,6 +4,7 @@ import re
 from timeit import default_timer as timer
 import import_invoices as invoices
 
+
 def connect_to_database(status: str="dev") -> fdb.Connection:
     """ Connect to the firebird database
         Default database to connect is the AVERP empty db
@@ -79,7 +80,6 @@ def performance_test():
         total += time
 
     print("Elapsed time of run: " + "{:.2f}".format(total/len(times)) + "s")
-
 
 
 if __name__ == "__main__":

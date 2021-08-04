@@ -8,6 +8,12 @@ import openpyxl
 from shutil import copyfile
 
 
+class invoice_data:
+    def __init__(self, name, content):
+        self.name = name
+        self.content = content
+
+
 def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
     """ Import excel file containing sample sales data
         File should be processed for specfic columns
