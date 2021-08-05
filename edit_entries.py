@@ -126,7 +126,7 @@ def update_badr_str(index):
     cur = con.cursor()
 
     project = inv.load_entry_pandas(index)
-    cur.execute("update BLRC set BAUOR==, LIEG== where LRECHNR=?")
+    cur.execute("update BLRC set BAUVOR==, LIEG== where LRECHNR=?")
     con.commit()
 
 
@@ -144,15 +144,27 @@ def update_project_desc(index: int):
     print(project)
     cur.execute("update BLRC set BAUVOR=?, LIEG=? where LRECHNR=?", [project['BAUVOR'], project['LIEG'], project['LRECHNR']])
     con.commit()
-    
+
+
+def markdone_all():
+    """ Mark an invoice as finished. This will be used to
+        update the complete collection of old invoices, to be 
+        prepared for new data. 
+    """ 
+    con = db.connect_to_database('prod')
+    cur = con.cursor()
+
+    cur.execute("update BLRC set ZTDRUCKEN='J' where ZTDRUCKEN='N'")    
+    con.commit()
+
 
 if __name__ == "__main__":
     # print("edit_entries")
-    count = 167
-    for i in range(count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):  
-        update_project_desc(i)
-        # count += 1
-        print(count) 
+    # count = 167
+    # for i in range(count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):  
+    #     update_project_desc(i)
+    #     # count += 1
+    #     print(count) 
     # update_badr_str(55)
 
     pass

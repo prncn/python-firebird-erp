@@ -14,7 +14,7 @@ def connect_to_database(status: str="dev") -> fdb.Connection:
         print("Altering production database...")
         con = fdb.connect(
             host='192.168.178.51', database='/AvERPDB/XDIRECT_DB.FDB', user='SYSDBA',
-            password='masterkey', charset='UTF8'
+            password='masterkey', charset='UTF8', fb_library_name=r"C:\Users\Princen.Vijayakumar\Downloads\Firebird-2.5.9.27139-0_x64\bin\fbclient.dll"
         )
     else:
         con = fdb.connect(

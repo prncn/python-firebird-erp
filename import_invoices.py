@@ -20,7 +20,7 @@ def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
         :param index: Index of dataframe row
     """
     sample_data = pd.read_excel(
-        'master_invoice_data.xlsx', sheet_name='Rechnungen')
+        'OPS.xlsx', sheet_name='Rechnungen')
     # sample_data = sample_data.where(pandas.notnull(sample_data), None)
     # name = sample_data.to_dict()['Name']
     # brutto = sample_data.to_dict()['Brutto']
