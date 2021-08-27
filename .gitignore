@@ -3,4 +3,5 @@
 emptydb/
 __pycache__
 *.xlsx
+!lieferanten_uebersicht.xlsx
 *.pdf
