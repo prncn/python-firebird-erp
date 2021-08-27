@@ -13,6 +13,11 @@ class invoice_data:
         self.name = name
         self.content = content
 
+STATUS_DICT = {
+    'ERLEDIGT': "'B'",
+    'OFFEN': "'E'"
+}
+
 
 def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
     """ Import excel file containing sample sales data
@@ -28,19 +33,42 @@ def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
         return sample_data.iloc[[index]][name][index]
 
     invoice_data = {
-        'NAME': col('Lieferant'),
-        'RECHDATUM_LIEF': format_date(sample_data, index, 'Beleg Datum'),
-        'RECHDATUM': format_date(sample_data, index, 'Beleg Datum'),
-        'ZAHLDATUM': format_date(sample_data, index, 'Fälligkeit'),
+        'NAME': col('Rechnungssteller'),
+        'RECHDATUM_LIEF': format_date(col('Beleg Datum')),
+        'RECHDATUM': format_date(col('Beleg Datum')),
+        'ZAHLDATUM': format_date(col('Fälligkeit')),
         'LRECHNR': col('Rechnungs-Nr.'),
-        'GESAMT': "{:.2f}".format(sample_data.iloc[[index]]['Rechnungsbetrag'].sum()),
-        'STATUS': col('Status'),
-        'ZAHL': format_date(sample_data, index, 'Bezahlt am'),
-        'BAUVOR': col('Bauvorhaben'),
-        'LIEG': col('Liegenschaft')
+        'ANPASSUNGDM': "{:.2f}".format(sample_data.iloc[[index]]['Brutto'].sum()),
+        'STATUS': STATUS_DICT[col('Status').upper()],
+        'ZAHLDATUM': filter_date(col('Bezahlt am'), col('Fälligkeit')),
+        # 'BAUVOR': col('Bauvorhaben'),
+        # 'LIEG': col('Liegenschaft')
     }
 
+    for key, value in invoice_data.items():
+        if pd.isna(value) or value is None:
+            invoice_data[key] = 'NULL'
+
     return invoice_data
+
+
+def filter_date(check_str, alt):
+    """ Check first if date exists or whether it is a string,
+        then pass to formatter
+    """
+    if check_str == "Bezahlt":
+        return format_date(alt)
+
+    res = True
+    try:
+        res = bool(datetime.datetime.strptime(str(check_str), '%d-%m-%Y'))
+    except ValueError:
+        res = False
+
+    if res:
+        return format_date(check_str)
+    else:
+        return None
 
 
 def load_entry_openpyxl(index: str) -> dict[str, str]:
@@ -63,6 +91,7 @@ def load_entry_openpyxl(index: str) -> dict[str, str]:
         'LIEG': ws_format(ws, index, 'E')
     }
 
+
     return invoice_data
 
 
@@ -72,17 +101,18 @@ def ws_format(ws: openpyxl.Workbook, index: int, col: int) -> str:
     return ws['{}{}'.format(col, index + 1)].value
 
 
-def format_date(sample_data: pd.DataFrame, index: int, col: int) -> datetime.datetime:
+def format_date(date) -> datetime.datetime:
     """ Convert to proper date string format for time series objects
         of excel dates
         :param sample_data: Dataframe file that is read
         :param index: Index of dataframe row 
         :param col: Column name of dataframe
     """
-    try:
-        return sample_data.iloc[[index]][col][index].strftime('%Y-%m-%d')
-    except (AttributeError, ValueError):
-        return datetime.datetime.now()
+
+    if(not isinstance(date, str)):
+        date = datetime.datetime.now()
+
+    return "'{}'".format(date.strftime('%d.%m.%Y'))
 
 
 def insert_invoice(BLIEF_ID, BADR_ID, BMAND_ID, RECHDATUM_LIEF, RECHDATUM, ZAHLDATUM, LRECHNR, GESAMT) -> int:
@@ -138,6 +168,32 @@ def process_invoices(index):
     )
 
 
+def check_then_insert(invoice):
+    """ Alternative insertion method. Only insert in case 
+        entry does not exist. Reduce overhead by handling conditions through SQL directly.
+    """
+    con = db.connect_to_database('prod')
+    cur = con.cursor()
+
+    BADR_ID = firms.get_badr_id(invoice['NAME'])
+    BLIEF_ID = firms.get_blief_id(BADR_ID)
+
+    print(BADR_ID)
+
+    fieldname_list = ', '.join(list(invoice.keys())[1:])
+    fieldval_list = ', '.join(str(x) for x in list(invoice.values())[1:])
+    print(fieldname_list)
+    print(fieldval_list)
+    insert = "insert into BLRC (BMWST_ID_MWSTKZ, BWAER_ID_WAEHRUNGK, BMAND_ID, BLIEF_ID_LINKKEY, BADR_ID_LADRCODE,  {}) values (5, 1, 1, {}, {}, {}) returning ID".format(fieldname_list, BLIEF_ID, BADR_ID, fieldval_list)
+    print(insert)
+
+    cur.execute(insert)
+
+    # con.commit()
+    con.close()
+
+
+
 if __name__ == "__main__":
     """ Test runs import invoices
     """
@@ -152,4 +208,12 @@ if __name__ == "__main__":
     # print(import_invoices(5))
     # print(import_invoices(12))
     # process_invoices(7)
+
+    # case = load_entry_pandas(1739)
+    # print(case)
+
+    entry = load_entry_pandas(555)
+    print(entry)
+    check_then_insert(entry)
+
     pass
