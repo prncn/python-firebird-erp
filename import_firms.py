@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import database_driver as db
 import math
+import numbers
 
 
 def get_supplier_data(index: int) -> dict[str, pd.DataFrame]:
@@ -61,8 +62,9 @@ def insert_badr(supplier: dict) -> int:
     insert_badr = "insert into BADR (NAME, ABTEILUNG, BPLZ_ID_LANDPLZ, WEBSITE, EMAIL, STR, HAUSNR, TELVOR, TELANSCH, TELVOR2, TELANSCH2, FAXVOR, FAXANSCH) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning ID"
 
     cur = con.cursor()
-    BPLZ_ID_LANDPLZ = 0
-    if supplier['PLZ'] != 0:
+    BPLZ_ID_LANDPLZ = ''
+    if not math.isnan(supplier['PLZ']):
+        print('FIRED HERE' + str(supplier['PLZ']))
         cur.execute(
             "select ID from BPLZ WHERE PLZ = {}".format(supplier['PLZ']))
         for id in cur:
@@ -90,12 +92,13 @@ def insert_badr(supplier: dict) -> int:
     ])
     badr_id = cur.fetchall()[0][0]
     print(supplier['NAME'] + " inserted into BADR")
-    # try:
-    insert_bansp = "insert into BANSP (BMAND_ID, BADR_ID_LINKKEY, NAME, NACHNAME, EMAIL) values (1, ?, ?, ?, ?)"
-    cur.execute(insert_bansp, [badr_id, supplier['ANSP'],
+    try:
+        insert_bansp = "insert into BANSP (BMAND_ID, BADR_ID_LINKKEY, NAME, NACHNAME, EMAIL) values (1, ?, ?, ?, ?)"
+        cur.execute(insert_bansp, [badr_id, supplier['ANSP'],
                                supplier['ANSP'], supplier['EMAIL']])
-    # except fdb.fbcore.DatabaseError:
-    # print(badr_id, supplier['ANSP'], supplier['EMAIL'])
+    except fdb.fbcore.DatabaseError:
+        print(badr_id, supplier['ANSP'], supplier['EMAIL'])
+        pass
     con.commit()
     con.close()
 
@@ -340,15 +343,13 @@ if __name__ == "__main__":
     # get_badr_id("Mercedes-Benz")
     # process_invoices()
 
-    # for i in range (0, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):
-    #     entr = get_supplier_data(i)
-    #     badr_id_entr = insert_badr(entr)
-    #     insert_blief(badr_id_entr)
-
-    entr = get_supplier_data(5)
-    badr_id_entr = insert_badr(entr)
-    insert_blief(badr_id_entr)
-
+    count = 51
+    for i in range (count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):
+        print(i)
+        entr = get_supplier_data(i)
+        print(entr)
+        badr_id_entr = insert_badr(entr)
+        insert_blief(badr_id_entr)
 
     # for i in range (10, 15):
     # entr = get_supplier_data(i)

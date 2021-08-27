@@ -13,6 +13,7 @@ class invoice_data:
         self.name = name
         self.content = content
 
+
 STATUS_DICT = {
     'ERLEDIGT': "'B'",
     'OFFEN': "'E'"
