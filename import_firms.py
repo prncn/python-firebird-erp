@@ -5,14 +5,14 @@ import database_driver as db
 import math
 
 
-def get_supplier_data(index: str) -> dict[str, pd.DataFrame]:
+def get_supplier_data(index: int) -> dict[str, pd.DataFrame]:
     """ Import row of supplier data by given index
 
         :param: index - Index to be read from dataframe
         :return: Dict of supplier info
     """
     df = db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal')
-    col = df.iloc[[index]][index]
+    col = df.iloc[index]
     field_data = {
         'NAME': col['Supplier Name'],
         'ABTEILUNG': format_position(str(df.iloc[[index]]['Position'].sum())),
@@ -156,7 +156,7 @@ def get_badr_id(name: str) -> int:
 
         :param name: Name string of company
     """
-    con = db.connect_to_database()
+    con = db.connect_to_database('prod')
     select = "select ID from BADR where NAME = ?"
 
     cur = con.cursor()
@@ -180,7 +180,7 @@ def get_blief_id(BADR_ID: int) -> int:
 
         :param BADR_ID: Address table ID of connected entry
     """
-    con = db.connect_to_database()
+    con = db.connect_to_database('prod')
     select = "select ID from BLIEF where BADR_ID_ADRNR = ?"
 
     cur = con.cursor()
@@ -341,9 +341,14 @@ if __name__ == "__main__":
     # process_invoices()
 
     # for i in range (0, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):
-    # entr = get_supplier_data(i)
-    # badr_id_entr = insert_badr(entr)
-    # insert_blief(badr_id_entr)
+    #     entr = get_supplier_data(i)
+    #     badr_id_entr = insert_badr(entr)
+    #     insert_blief(badr_id_entr)
+
+    entr = get_supplier_data(5)
+    badr_id_entr = insert_badr(entr)
+    insert_blief(badr_id_entr)
+
 
     # for i in range (10, 15):
     # entr = get_supplier_data(i)
@@ -366,5 +371,4 @@ if __name__ == "__main__":
     #     except:
     #         print(i)
 
-    print(read_datev(6))
 
