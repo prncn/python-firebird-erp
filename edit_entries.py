@@ -158,6 +158,29 @@ def markdone_all():
     con.commit()
 
 
+def company_nuke():
+    """ WARNING clearance, deletion of complete firm entry tables
+        BLIEF then BADR
+    """
+    con, cur = db.init_db()
+    cur.execute("delete from BANSP where ID > 0")
+    con.commit()
+    cur.execute("delete from BLIEF where ID > 0")
+    con.commit()
+    cur.execute("delete from BADR where ID > 2")
+    con.commit()
+
+
+def prep_list(dict):
+    """ Return string for prepared statement 
+        to be inserted in method
+    """
+    prep_list = []
+    for x in list(dict.values()):
+        prep_list.append('?')
+    return ', '.join(prep_list)
+
+
 if __name__ == "__main__":
     # print("edit_entries")
     # count = 167

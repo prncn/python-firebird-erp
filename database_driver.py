@@ -4,6 +4,11 @@ import re
 from timeit import default_timer as timer
 import import_invoices as invoices
 
+def init_db():
+    con = connect_to_database()
+    cur = con.cursor()
+
+    return con, cur
 
 def connect_to_database(status: str='prod') -> fdb.Connection:
     """ Connect to the firebird database

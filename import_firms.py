@@ -4,7 +4,7 @@ import re
 import database_driver as db
 import math
 import numbers
-
+import edit_entries as edit
 
 def get_supplier_data(index: int) -> dict[str, pd.DataFrame]:
     """ Import row of supplier data by given index
@@ -19,22 +19,33 @@ def get_supplier_data(index: int) -> dict[str, pd.DataFrame]:
         'ABTEILUNG': format_position(str(df.iloc[[index]]['Position'].sum())),
         'STR': col['Street'],
         'HAUSNR': col['Street No.'],
-        'PLZ': col['Postcode'],
+        'BPLZ_ID_LANDPLZ': col['Postcode'],
         'EMAIL': col['E-Mail'],
         'WEBSITE': col['WEB'],
-        'TEL1': col['Telefon'],
-        'TEL2': col['Mobil'],
-        'FAX': col['Fax'],
         'ANSP': col['Ansprechpartner'],
-        'KNR': col['Kundennummer']
+        'MASKENKEY': col['Kundennummer']
     }
 
+    if col['Telefon']:
+        field_data['TELVOR'], field_data['TELANSCH'] = format_number_wrapper(col['Telefon'])
+    
+    if col['Mobil']:
+        field_data['TELVOR2'], field_data['TELANSCH2'] = format_number_wrapper(col['Mobil'])
+
+    if col['Fax']:
+        field_data['FAXVOR'], field_data['FAXANSCH'] = format_number_wrapper(col['Fax'])
+
+    edit_data = {}
     for key, value in field_data.items():
-        if not value and key != 'ANSP':
-            field_data[key] = None
+        if value:
+            edit_data[key] = value
 
-    return field_data
+    return edit_data
 
+
+def format_number_wrapper(number):
+    field = format_number(number)
+    return field['VOR'], field['ANSCH']
 
 def key_count(entries: pd.DataFrame, key: str) -> int:
     """ Returns the count of a specific key within the XLSX
@@ -62,42 +73,38 @@ def insert_badr(supplier: dict) -> int:
     insert_badr = "insert into BADR (NAME, ABTEILUNG, BPLZ_ID_LANDPLZ, WEBSITE, EMAIL, STR, HAUSNR, TELVOR, TELANSCH, TELVOR2, TELANSCH2, FAXVOR, FAXANSCH) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning ID"
 
     cur = con.cursor()
+    
+    cur.execute("select ID from BADR where name = '{}'".format(supplier['NAME']))
+
+    # Check whether company entry (name) already exists, else return null
+    for row in cur:
+        return None
+    
     BPLZ_ID_LANDPLZ = ''
-    if not math.isnan(supplier['PLZ']):
-        print('FIRED HERE' + str(supplier['PLZ']))
+    if 'BPLZ_ID_LANDPLZ' in supplier and not math.isnan(supplier['BPLZ_ID_LANDPLZ']):
+        print('FIRED HERE' + str(supplier['BPLZ_ID_LANDPLZ']))
         cur.execute(
-            "select ID from BPLZ WHERE PLZ = {}".format(supplier['PLZ']))
+            "select ID from BPLZ WHERE PLZ = {}".format(supplier['BPLZ_ID_LANDPLZ']))
         for id in cur:
-            BPLZ_ID_LANDPLZ = id[0]
+            supplier['BPLZ_ID_LANDPLZ'] = id[0]
             break
 
-    TEL1 = format_number(supplier['TEL1'])
-    TEL2 = format_number(supplier['TEL2'])
-    FAX = format_number(supplier['FAX'])
-    print(TEL1, TEL2, FAX)
-    cur.execute(insert_badr, [
-        supplier['NAME'],
-        supplier['ABTEILUNG'],
-        BPLZ_ID_LANDPLZ,
-        supplier['WEBSITE'],
-        supplier['EMAIL'],
-        supplier['STR'],
-        supplier['HAUSNR'],
-        TEL1['VOR'],
-        TEL1['ANSCH'],
-        TEL2['VOR'],
-        TEL2['ANSCH'],
-        FAX['VOR'],
-        FAX['ANSCH']
-    ])
+    badr_supplier = {x:y for x,y in supplier.items() if x != 'ANSP'}
+    fieldname_list = ', '.join(list(badr_supplier.keys()))
+    fieldval_list = ', '.join(str(x) for x in list(supplier.values()))
+    prep_list = edit.prep_list(badr_supplier)
+    
+    insert = "insert into BADR ({}) values ({}) returning ID".format(fieldname_list, prep_list)
+    print(insert)
+    cur.execute(insert, list(badr_supplier.values()))
+
     badr_id = cur.fetchall()[0][0]
     print(supplier['NAME'] + " inserted into BADR")
     try:
         insert_bansp = "insert into BANSP (BMAND_ID, BADR_ID_LINKKEY, NAME, NACHNAME, EMAIL) values (1, ?, ?, ?, ?)"
         cur.execute(insert_bansp, [badr_id, supplier['ANSP'],
                                supplier['ANSP'], supplier['EMAIL']])
-    except fdb.fbcore.DatabaseError:
-        print(badr_id, supplier['ANSP'], supplier['EMAIL'])
+    except:
         pass
     con.commit()
     con.close()
@@ -106,7 +113,7 @@ def insert_badr(supplier: dict) -> int:
 
 
 def insert_badr_min(supplier: dict) -> int:
-    """ Insert minified entry of supplier into adresses table, a
+    """ Insert minified entry of supplier into adressse table, a
         minified entry contains only a company name.
         This is used in case an invoice entry is detected with an
         unknown/new supplier name.
@@ -133,6 +140,9 @@ def insert_blief(BADR_ID: int) -> None:
 
         :param BADR_ID: Returned adress table entry ID
     """
+    if BADR_ID is None:
+        return None
+
     con = db.connect_to_database()
     link_sup = "insert into BLIEF (BADR_ID_ADRNR, BWAER_ID_WAERUNGK, ERFDATUM, KZ_MWST, BBES_EINZELN) values (?, ?, CURRENT_DATE, 5, 1)"
 
@@ -201,6 +211,12 @@ def format_number(number: int) -> dict:
         to database standard
         :param number: Unformatted number
     """
+    if number is None:
+        return {
+            'VOR': None,
+            'ANSCH': None
+        }
+
     VOR = ''
     ANSCH = number
     number = str(number)
@@ -333,6 +349,15 @@ def check_datev(index) -> bool:
     return True
 
 
+def process_insert(index):
+    """ Wrapper method for company insert
+    """
+    entr = get_supplier_data(i)
+    print(entr)
+    badr_id_entr = insert_badr(entr)
+    insert_blief(badr_id_entr)
+
+
 if __name__ == "__main__":
     """ Test runs db scripts
     """
@@ -343,13 +368,10 @@ if __name__ == "__main__":
     # get_badr_id("Mercedes-Benz")
     # process_invoices()
 
-    count = 51
-    for i in range (count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):
-        print(i)
-        entr = get_supplier_data(i)
-        print(entr)
-        badr_id_entr = insert_badr(entr)
-        insert_blief(badr_id_entr)
+    # count = 377
+    # for i in range (count, len(db.excel_to_dataframe('lieferanten_uebersicht.xlsx', 'Orginal').index)):
+    #     print("--------------------{}--------------------".format(i))
+    #     process_insert(i)
 
     # for i in range (10, 15):
     # entr = get_supplier_data(i)

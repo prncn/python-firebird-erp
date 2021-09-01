@@ -6,7 +6,7 @@ import import_firms as firms
 import datetime
 import openpyxl
 from shutil import copyfile
-
+import edit_entries as edit
 
 class invoice_data:
     def __init__(self, name, content):
@@ -15,8 +15,8 @@ class invoice_data:
 
 
 STATUS_DICT = {
-    'ERLEDIGT': "'B'",
-    'OFFEN': "'E'"
+    'ERLEDIGT': 'B',
+    'OFFEN': 'E'
 }
 
 
@@ -42,15 +42,18 @@ def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
         'ANPASSUNGDM': "{:.2f}".format(sample_data.iloc[[index]]['Brutto'].sum()),
         'STATUS': STATUS_DICT[col('Status').upper()],
         'ZAHLDATUM': filter_date(col('Bezahlt am'), col('Fälligkeit')),
+        'BPROJPO_ID': col('Bauvorhaben'),
+        # 'BPROJPO_MASKENKEY': col('Liegenschaft'),
         # 'BAUVOR': col('Bauvorhaben'),
         # 'LIEG': col('Liegenschaft')
     }
 
+    edit_invoice = {}
     for key, value in invoice_data.items():
-        if pd.isna(value) or value is None:
-            invoice_data[key] = 'NULL'
+        if not pd.isna(value) and value:
+            edit_invoice[key] = value
 
-    return invoice_data
+    return edit_invoice
 
 
 def filter_date(check_str, alt):
@@ -92,9 +95,23 @@ def load_entry_openpyxl(index: str) -> dict[str, str]:
         'LIEG': ws_format(ws, index, 'E')
     }
 
-
     return invoice_data
 
+
+def get_bprojpo(BPROJ):
+    con, cur = db.init_db()
+
+    cur.execute("select ID from BPROJPO where BPROJ_MASKENKEY = ?", [BPROJ])
+    for row in cur:
+        return row[0]
+
+    cur.execute("insert into BPROJ (MASKENKEY) values (?)", [BPROJ])
+    con.commit()
+    cur.execute("insert into BPROJPO (BPROJ_MASKENKEY) values (?) returning ID", [BPROJ])
+    con.commit()
+
+    return cur.fetchall()[0][0]
+    
 
 def ws_format(ws: openpyxl.Workbook, index: int, col: int) -> str:
     """ Formatting for import_invoice_openpxl method
@@ -113,7 +130,7 @@ def format_date(date) -> datetime.datetime:
     if(not isinstance(date, str)):
         date = datetime.datetime.now()
 
-    return "'{}'".format(date.strftime('%d.%m.%Y'))
+    return date.strftime('%d.%m.%Y')
 
 
 def insert_invoice(BLIEF_ID, BADR_ID, BMAND_ID, RECHDATUM_LIEF, RECHDATUM, ZAHLDATUM, LRECHNR, GESAMT) -> int:
@@ -142,7 +159,7 @@ def insert_invoice(BLIEF_ID, BADR_ID, BMAND_ID, RECHDATUM_LIEF, RECHDATUM, ZAHLD
 
 
 def process_invoices(index):
-    """ Main driver. Process invoices of corresponding
+    """ Main driver. Profcess invoices of corresponding
         invoices into inserted to db
         :param index: Index of excel row number
     """
@@ -176,6 +193,12 @@ def check_then_insert(invoice):
     con = db.connect_to_database('prod')
     cur = con.cursor()
 
+    # Check if invoice has already been entered
+    cur.execute("select ID from BLRC where LRECHNR = ?", [invoice['LRECHNR']])
+    for row in cur:
+        print('Invoice already exists.')
+        return None
+
     BADR_ID = firms.get_badr_id(invoice['NAME'])
     BLIEF_ID = firms.get_blief_id(BADR_ID)
 
@@ -183,16 +206,15 @@ def check_then_insert(invoice):
 
     fieldname_list = ', '.join(list(invoice.keys())[1:])
     fieldval_list = ', '.join(str(x) for x in list(invoice.values())[1:])
-    print(fieldname_list)
-    print(fieldval_list)
-    insert = "insert into BLRC (BMWST_ID_MWSTKZ, BWAER_ID_WAEHRUNGK, BMAND_ID, BLIEF_ID_LINKKEY, BADR_ID_LADRCODE,  {}) values (5, 1, 1, {}, {}, {}) returning ID".format(fieldname_list, BLIEF_ID, BADR_ID, fieldval_list)
-    print(insert)
+    prep_list = edit.prep_list(invoice)[3:]
+    insert = "insert into BLRC (BMWST_ID_MWSTKZ, BWAER_ID_WAEHRUNGK, BMAND_ID, BLIEF_ID_LINKKEY, BADR_ID_LADRCODE, {}) values (5, 1, 1, ?, ?, {}) returning ID".format(fieldname_list, prep_list)
 
-    cur.execute(insert)
+    exec_prep = [BLIEF_ID] + [BADR_ID] + list(invoice.values())[1:]
+    print(exec_prep)
+    cur.execute(insert, exec_prep)
 
     # con.commit()
     con.close()
-
 
 
 if __name__ == "__main__":
@@ -213,7 +235,7 @@ if __name__ == "__main__":
     # case = load_entry_pandas(1739)
     # print(case)
 
-    entry = load_entry_pandas(555)
+    entry = load_entry_pandas(648)
     print(entry)
     check_then_insert(entry)
 
