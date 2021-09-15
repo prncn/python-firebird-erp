@@ -6,6 +6,7 @@ import import_firms as firms
 import datetime
 import openpyxl
 from shutil import copyfile
+from dateutil import parser
 import edit_entries as edit
 
 class invoice_data:
@@ -16,7 +17,8 @@ class invoice_data:
 
 STATUS_DICT = {
     'ERLEDIGT': 'B',
-    'OFFEN': 'E'
+    'OFFEN': 'E',
+    'LASTSCHRIFT': 'L'
 }
 
 
@@ -33,6 +35,16 @@ def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
     def col(name):
         return sample_data.iloc[[index]][name][index]
 
+    BPROJ_ID = ''
+    if col('Bauvorhaben'):
+        BPROJ_ID = col('Bauvorhaben')
+    else:
+        BPROJ_ID = col('Liegenschaften')
+
+    ZTDRUCKEN = 'N'
+    if col('Status') == 'Erledigt':
+        ZTDRUCKEN = 'J'
+
     invoice_data = {
         'NAME': col('Rechnungssteller'),
         'RECHDATUM_LIEF': format_date(col('Beleg Datum')),
@@ -40,9 +52,10 @@ def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
         'ZAHLDATUM': format_date(col('Fälligkeit')),
         'LRECHNR': col('Rechnungs-Nr.'),
         'ANPASSUNGDM': "{:.2f}".format(sample_data.iloc[[index]]['Brutto'].sum()),
-        'STATUS': STATUS_DICT[col('Status').upper()],
+        'STATUS': col('Status'),
         'ZAHLDATUM': filter_date(col('Bezahlt am'), col('Fälligkeit')),
-        'BPROJPO_ID': col('Bauvorhaben'),
+        'BPROJ_ID': BPROJ_ID,
+        'ZTDRUCKEN': ZTDRUCKEN
         # 'BPROJPO_MASKENKEY': col('Liegenschaft'),
         # 'BAUVOR': col('Bauvorhaben'),
         # 'LIEG': col('Liegenschaft')
@@ -129,6 +142,9 @@ def format_date(date) -> datetime.datetime:
 
     if(not isinstance(date, str)):
         date = datetime.datetime.now()
+    
+    if(not isinstance(date, datetime.datetime)):
+        return ''
 
     return date.strftime('%d.%m.%Y')
 
@@ -194,36 +210,60 @@ def check_then_insert(invoice):
     cur = con.cursor()
 
     # Check if invoice has already been entered
-    cur.execute("select ID from BLRC where LRECHNR = ?", [invoice['LRECHNR']])
-    for row in cur:
-        print('Invoice already exists.')
-        return None
+    if 'LRECHNR' in invoice:
+        cur.execute("select ID from BLRC where LRECHNR = ?", [invoice['LRECHNR']])
+        for row in cur:
+            print('Invoice already exists.')
+            return None
 
     BADR_ID = firms.get_badr_id(invoice['NAME'])
     BLIEF_ID = firms.get_blief_id(BADR_ID)
-
     print(BADR_ID)
+    
+    BPROJ_ID = ''
+    if 'BPROJ_ID' in invoice:
+        BPROJ_ID = invoice['BPROJ_ID']
+
+        bproj_exists = False
+        cur.execute("select ID from BPROJ where BEZ = ?", [BPROJ_ID])
+        for row in cur:
+            bproj_exists = True
+            BPROJ_ID = row[0]
+
+        if not bproj_exists:
+            print('Project entry does not exist. Inserting..')
+            cur.execute('insert into BPROJ (BEZ, BSM_ID_VERANTW, BSM_ID_VERTRET, DATUM_VON, DATUM_BIS) values (?, 1, 1, CURRENT_DATE, CURRENT_DATE) returning ID', [BPROJ_ID])
+            BPROJ_ID = cur.fetchall()[0][0]
+            con.commit()
+
+        print('BPROJ_ID: ' + str(BPROJ_ID))
+        invoice['BPROJ_ID'] = BPROJ_ID
+
 
     fieldname_list = ', '.join(list(invoice.keys())[1:])
     fieldval_list = ', '.join(str(x) for x in list(invoice.values())[1:])
     prep_list = edit.prep_list(invoice)[3:]
-    insert = "insert into BLRC (BMWST_ID_MWSTKZ, BWAER_ID_WAEHRUNGK, BMAND_ID, BLIEF_ID_LINKKEY, BADR_ID_LADRCODE, {}) values (5, 1, 1, ?, ?, {}) returning ID".format(fieldname_list, prep_list)
+    insert = 'insert into BLRC (BMWST_ID_MWSTKZ, BWAER_ID_WAEHRUNGK, BMAND_ID, BLIEF_ID_LINKKEY, BADR_ID_LADRCODE, {}) values (5, 1, 1, ?, ?, {}) returning ID'.format(fieldname_list, prep_list)
 
     exec_prep = [BLIEF_ID] + [BADR_ID] + list(invoice.values())[1:]
     print(exec_prep)
+    print(insert)
     cur.execute(insert, exec_prep)
 
-    # con.commit()
+    con.commit()
     con.close()
 
 
 if __name__ == "__main__":
     """ Test runs import invoices
     """
-    # counter = 0
-    # for i in range(1360, len(db.excel_to_dataframe('master_invoice_data.xlsx', 'Rechnungen'))):
-        # process_invoices(i)
-        # print(import_invoices(i)['GESAMT'], i)
+    counter = 158
+    for i in range(counter, len(db.excel_to_dataframe('master_invoice_data.xlsx', 'Rechnungen'))):
+        entry = load_entry_pandas(i)
+        print(entry)
+        check_then_insert(entry)
+        print('COUNT' + str(i))
+
 
     # print(len(database_driver.excel_to_dataframe('master_invoice_data.xlsx', 'Rechnungen')))
     # 2242 Entries as of 24/03/21
@@ -235,8 +275,8 @@ if __name__ == "__main__":
     # case = load_entry_pandas(1739)
     # print(case)
 
-    entry = load_entry_pandas(648)
-    print(entry)
-    check_then_insert(entry)
+    # entry = load_entry_pandas(648)
+    # print(entry)
+    # check_then_insert(entry)
 
     pass

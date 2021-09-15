@@ -308,7 +308,7 @@ def read_datev(index) -> dict:
     field_data = {
         'NAME': col['Beschriftung'],
         'STR': col['Postfach oder Stra�e'],
-        'PLZ': (col_next['Postfach oder Stra�e']),
+        'PLZ': col_next['Postfach oder Stra�e'],
         'TEL1': col_next['Unternehmensgegenstand'],
         'KNR2': cast_int(col['Konto']),
         'KNR': col['Kunden-Nr.']

@@ -171,6 +171,12 @@ def company_nuke():
     con.commit()
 
 
+def invoice_nuke():
+    con, cur = db.init_db()
+    cur.execute("delete from BLRC where ID > 0")
+    con.commit()
+
+
 def prep_list(dict):
     """ Return string for prepared statement 
         to be inserted in method
@@ -189,6 +195,7 @@ if __name__ == "__main__":
     #     # count += 1
     #     print(count) 
     # update_badr_str(55)
+    invoice_nuke()
 
     pass
 
