@@ -177,6 +177,7 @@ def get_badr_id(name: str) -> int:
     try:
         badr_id = cur.fetchall()[0][0]
     except IndexError:
+        name = shorten_name(name)
         print(name + " not found. Inserting...")
         badr_id = insert_badr_min(name)
         insert_blief(badr_id)
@@ -185,6 +186,18 @@ def get_badr_id(name: str) -> int:
     con.close()
 
     return badr_id
+
+
+def shorten_name(name: str) -> str:
+    if len(name) < 40:
+        return name
+
+    if len(name) > 40:
+        end = name.rfind(" ")
+        name = name[:end]
+
+    return shorten_name(name)
+    
 
 
 def get_blief_id(BADR_ID: int) -> int:

@@ -16,9 +16,20 @@ class invoice_data:
 
 
 STATUS_DICT = {
-    'ERLEDIGT': 'B',
-    'OFFEN': 'E',
-    'LASTSCHRIFT': 'L'
+    'ERLEDIGT': 'E',
+    'HZA': 'H',
+    'IN BEARBEITUNG': 'B',
+    'LASTSCHRIFT': 'L',
+    'OFFEN': 'O',
+    'OGV': 'V',
+    'PRÜFEN': 'P',
+    'ANWALT': 'A',
+    'GERICHT': 'G',
+    'INKASSO':'K',
+    'RISK': 'R',
+    'TECHFUND': 'T',
+    'FA': 'F',
+    'VERRECHNUNGSKONTO': 'X'
 }
 
 
@@ -56,9 +67,7 @@ def load_entry_pandas(index: int) -> dict[str, pd.DataFrame]:
         'ZAHLDATUM': filter_date(col('Bezahlt am'), col('Fälligkeit')),
         'BPROJ_ID': BPROJ_ID,
         'ZTDRUCKEN': ZTDRUCKEN
-        # 'BPROJPO_MASKENKEY': col('Liegenschaft'),
-        # 'BAUVOR': col('Bauvorhaben'),
-        # 'LIEG': col('Liegenschaft')
+
     }
 
     edit_invoice = {}
@@ -257,15 +266,15 @@ def check_then_insert(invoice):
 if __name__ == "__main__":
     """ Test runs import invoices
     """
-    counter = 158
-    for i in range(counter, len(db.excel_to_dataframe('master_invoice_data.xlsx', 'Rechnungen'))):
+    # previous count 2053
+    counter = 1174
+    for i in range(counter, len(db.excel_to_dataframe('OPS.xlsx', 'Rechnungen'))):
         entry = load_entry_pandas(i)
         print(entry)
         check_then_insert(entry)
         print('COUNT' + str(i))
 
-
-    # print(len(database_driver.excel_to_dataframe('master_invoice_data.xlsx', 'Rechnungen')))
+    # print(len(database_driver.excel_to_dataframe('OPS.xlsx', 'Rechnungen')))
     # 2242 Entries as of 24/03/21
     # print(counter)
     # print(import_invoices(5))
